@@ -7,8 +7,37 @@ class MoviesController < ApplicationController
   end
 
   def index
+    # Load user preferences from session
+    if session.key? :movies_filter
+      filter = session[:movies_filter]
+    else
+      session[:movies_filter] = filter = {}
+    end
+
+    if (!params[:sortcol] and filter[:sortcol]) or
+       (!params[:ratings] and filter[:ratings])
+      # Redirect to include saved parameters in URL
+      flash.keep
+      return redirect_to movies_path(filter.update params)
+    end
+
+    # Sort and filter settings
     @sortcol = params[:sortcol]
-    @movies = Movie.all(:order => @sortcol)
+    @all_ratings = Movie.list_ratings
+
+    if !params.key? :ratings
+      # By default, all ratings are selected (not filtered by rating)
+      rating_pairs = @all_ratings.collect {|rating| [rating, 1]}
+      @ratings = Hash[*rating_pairs.flatten]
+    else
+      @ratings = params[:ratings]
+    end
+
+    # Save user preferences
+    filter[:sortcol] = @sortcol
+    filter[:ratings] = @ratings
+
+    @movies = Movie.where(:rating => @ratings.keys).order(@sortcol)
   end
 
   def new
